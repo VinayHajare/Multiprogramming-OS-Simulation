@@ -71,7 +71,7 @@ class Producer implements Runnable{
 
 class Consumer implements Runnable{
 
-private Buffer buffer;
+	private Buffer buffer;
 	
 	Consumer(Buffer buffer){
 		this.buffer = buffer;

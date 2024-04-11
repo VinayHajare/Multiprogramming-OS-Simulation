@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
+import java.util.Random;
 
 public class OSv2 {
 	
@@ -15,6 +16,11 @@ public class OSv2 {
 		private int SI;
 		private int IC;
 		private boolean C;
+		private int PTR;
+		private int TI;
+		private int PI;
+		private PCB pcb;
+		private boolean[] isAllocated;
 		// Memory of the Virtual machine
 		private char[][] M;
 		// reader and writer for I/O operations
@@ -22,6 +28,9 @@ public class OSv2 {
 		PrintWriter writer;
 		// Buffer between memory and IO
 		private char[] buffer;
+		// Auxiliary variables
+		private int pageCounter;
+		private boolean isTerminated;
 		
 		// Constructor of the OS
 		public OSv2() throws IOException {
@@ -30,21 +39,24 @@ public class OSv2 {
 			R = new char[4];
 			IC = 0;
 			SI = 0;
+			TI = 0;
+			PI = 0;
 			C = false;
-			
+			// Map to keep track of allocated pages
+			isAllocated = new boolean[30];
 			// initialize memory
-			M = new char[100][4];
+			M = new char[300][4];
 			
 			// initialize the IO workers
 			buffer = new char[40];
-			reader = new BufferedReader(new FileReader("D:\\Vinay Hajare\\Eclipse Project\\OS Course Project\\src\\input.txt"));
-		    File file = new File("D:\\Vinay Hajare\\Eclipse Project\\OS Course Project\\src\\output.txt");
+			reader = new BufferedReader(new FileReader("D:\\Vinay Hajare\\Eclipse Project\\OS Course Project\\src\\phase2\\input.txt"));
+		    File file = new File("D:\\Vinay Hajare\\Eclipse Project\\OS Course Project\\src\\phase2\\output.txt");
 		    writer = new PrintWriter(file);
 		}
 		
 		// Function to initialize the registers and memory
-		public void initialize() throws IOException {
-			for (int i = 0; i < 100; i++) {
+		public void initialize(int pageNumber) throws IOException {
+			for (int i = 0; i < 300; i++) {
 	            for (int j = 0; j < 4; j++) {
 	                M[i][j] = ' ';
 	            }
@@ -57,18 +69,57 @@ public class OSv2 {
 	        
 	        IC = 0;
 	        SI = 0;
-	        
+	        TI = 0;
+	        PI = 0;
 	        C = false;
+	        
+	        pageCounter = -1;
+	        isTerminated = false;
+	        
+	        isAllocated[pageNumber] = true;
 	        
 	        for (int j = 0; j < 40; j++) {
 	            buffer[j] = ' ';
 	        }
 		}
 		
+		// Function to allocate a random page from available pages
+		private int allocatePage() {
+			Random random = new Random();
+			int pageNumber = random.nextInt(30);
+			while(isAllocated[pageNumber]) {
+				pageNumber = random.nextInt(30);
+			}
+			isAllocated[pageNumber] = true;
+			return pageNumber;
+		}
+		
+		// Function to map a virtual address to corresponding  physical address
+		int mapAddress(int virtualAddress) {
+			if (virtualAddress < 0 || virtualAddress > 99) {
+				this.SI = 0;
+	            this.PI = 2;
+	            this.TI = 0;
+				return -2;
+	        }
+			
+			int pageTableEntry = this.PTR * 10 + (virtualAddress/10);
+			int addressOfPTE = Character.getNumericValue(M[pageTableEntry][2]) * 10 + Character.getNumericValue(M[pageTableEntry][3]);
+			int physicalAddress = addressOfPTE * 10 + (virtualAddress % 10);
+			
+			if(physicalAddress < 0 || physicalAddress > 299 ) {
+				this.SI = 0;
+				this.PI = 3;
+				this.TI = 0;
+				return -1;
+			}
+			
+			return physicalAddress;
+		}
+		
 		// Function to load the program and data cards
 		public void load() throws IOException {
 			String line = null;
-			int block = 0;
 			
 			while((line = reader.readLine()) != null) {
 				for (int j = 0; j < 40; j++) {
@@ -80,39 +131,55 @@ public class OSv2 {
 				}
 				
 				if(buffer[0] == '$' && buffer[1] == 'A' && buffer[2] == 'M' && buffer[3] == 'J') {
-					initialize();;
+					int pageNumber = allocatePage();
+					pageCounter++;
+					int jobId = Character.getNumericValue(buffer[4]) * 1000 + Character.getNumericValue(buffer[3]) * 100 + Character.getNumericValue(buffer[2]) * 10 + Character.getNumericValue(buffer[1]);
+					int TTL = Character.getNumericValue(buffer[4]) * 1000 + Character.getNumericValue(buffer[3]) * 100 + Character.getNumericValue(buffer[2]) * 10 + Character.getNumericValue(buffer[1]);
+					int TLL = Character.getNumericValue(buffer[4]) * 1000 + Character.getNumericValue(buffer[3]) * 100 + Character.getNumericValue(buffer[2]) * 10 + Character.getNumericValue(buffer[1]);
+					pcb = new PCB(jobId, TTL, TLL);
+					this.PTR = pageNumber;
+					initialize(pageNumber);
+					for(int i = 0; i < 10; i++) {
+						for(int j = 0; j < 4; j++) {
+							M[PTR + i][j] = '*';
+						}
+					}
 				}else if(buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
 					startExecution();
 				}else if(buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {
-					break;
+					continue;
 				}else {
-					int k = 0; 
-					if(block == 100) {
-						  // Memory exceeded
-			              System.out.println("Memory exceeded. Aborting.");
-			              break;
-					}
+					int page = allocatePage();
+					M[PTR+pageCounter][2] = Character.forDigit(page / 10, 10);
+					M[PTR+pageCounter][3] = Character.forDigit(page % 10, 10);
+					page *= 10;
+					pageCounter++;
 					
-					for(; block < 100; block++) {
+					int k = 0; 
+					
+					for(int i = 0; i < 10; i++) {
 						
 						if (k == 40 || buffer[k] == '\0' || buffer[k] == '\n') {
-	                        break;
+	                        isTerminated = true;
+							break;
 	                    }
 						
 						for(int j = 0; j<4; j++) {
 							if (k == 40 || buffer[k] == '\0' || buffer[k] == '\n') {
-		                        break;
+								isTerminated = true;
+								break;
 		                    }
+							
 							if(buffer[k] == 'H') {
-								M[block][j] = buffer[k++];
+								M[page + i][j] = buffer[k++];
 								break;
 							}
 							
-							M[block][j] = buffer[k];
-							k++;
+							M[page + i][j] = buffer[k++];
 						}
 						
 						if (k == 40 || buffer[k] == '\0' || buffer[k] == '\n') {
+							isTerminated = true;
 	                        break;
 	                    }
 					}
@@ -128,18 +195,56 @@ public class OSv2 {
 		
 		// execute the user program
 		private void executeUserProgram() throws IOException {
-			while(true) {
-				IR = M[IC++];
+			isTerminated = false;
+			while(!isTerminated) {
+				int physicalAddress = mapAddress(IC);
+				
+				if(physicalAddress == -2) {
+					System.err.println("Operand Error :: Invalid virtual address!!");
+					TI = 0;
+					PI = 2;
+					SI = 0;
+					MOS(physicalAddress);
+					continue;
+				}
+				
+				if(physicalAddress == -1) {
+					System.err.println("Page Fault");
+					TI = 0;
+					PI = 3;
+					SI = 0;
+					MOS(physicalAddress);
+					continue;
+				}
+				
+				IR = M[physicalAddress];
+				IC++;
 				System.err.println(Arrays.toString(IR));
+				int operand = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+				int realOperand = mapAddress(operand);
+				
 				if(IR[0] == 'G' && IR[1] == 'D') {
+					if(realOperand == -1) {
+						System.err.println("Page Fault");
+						TI = 0;
+						PI = 3;
+						SI = 0;
+						MOS(realOperand);
+					}
 					SI = 1;
-					MOS();
+					TI = 0;
+					PI = 0;
+					MOS(realOperand);
 				}else if(IR[0] == 'P' && IR[1] == 'D') {
 					SI = 2;
-					MOS();
+					TI = 0;
+					PI = 0;
+					MOS(realOperand);
 				}else if(IR[0] == 'H') {
 					SI = 3;
-					MOS();
+					TI = 0;
+					PI = 0;
+					MOS(realOperand);
 					break;
 				}else if(IR[0] == 'L' && IR[1] == 'R') {
 					loadRegister();
@@ -152,6 +257,13 @@ public class OSv2 {
 				}else {
 					System.err.print("Invalid Opcode : "+ Character.toString(IR[0]) + Character.toString(IR[1]));
 					break;
+				}
+				
+				pcb.TTC++;
+				if(pcb.TTC >= pcb.TTL) {
+					SI = 1;
+					TI = 2;
+					MOS(realOperand);
 				}
 			}
 		}
@@ -166,24 +278,33 @@ public class OSv2 {
 			int k = 0;
 			String line;
 			
-			int block = Character.getNumericValue(IR[2])*10;
-			
 			if((line = reader.readLine()) != null) {
 				if(line.contains("$END")) {
-					System.err.println("OUT OF DATA !!!");
+					terminate(1);
 				}else {
 					for(int i=0; i<line.length(); i++) {
 						buffer[i] = line.charAt(i);
 					}
 					
+					int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+					int physicalAddress = mapAddress(virtualAddress);
+					
+					if(physicalAddress == -1) {
+						TI = 0;
+						PI = 3;
+						SI = 0;
+						MOS(physicalAddress);
+					}
+					
+					int newPhysicalAddress = mapAddress(this.IC);
+					
 					for(int i = 0; i<10; i++) {
 						for(int j = 0; j<4; j++) {
 							if(k < 40) {
-								M[block][j] = buffer[k];
+								M[newPhysicalAddress + i][j] = buffer[k];
 								k++;
 							}
 						}
-						block++;
 					}
 				}
 			}else {
@@ -193,62 +314,110 @@ public class OSv2 {
 		
 		// function to handle the write interrupt
 		private void write() {
-			// Clear the buffer
-			for (int i = 0; i < 40; i++) {
-			     buffer[i] = ' ';
-			}
-			int k = 0;
-			int block = Character.getNumericValue(IR[2]);
-			block *= 10;
+			pcb.LLC++;
+			if(pcb.LLC > pcb.TLL) {
+				terminate(2);
+			}else {
+				// Clear the buffer
+				for (int i = 0; i < 40; i++) {
+					buffer[i] = ' ';
+				}
+				int k = 0;
+				int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+				int physicalAddress = mapAddress(virtualAddress);
 			
-			for(int i = 0; i<10; i++) {
-				for(int j = 0; j<4; j++) {
-					if(k < 40) {
-						buffer[k] = M[block][j];
-						k++;
+				for(int i = 0; i<10; i++) {
+					for(int j = 0; j<4; j++) {
+						if(k < 40) {
+							buffer[k] = M[physicalAddress + i][j];
+							k++;
+						}
 					}
 				}
-				block++;
-			}
 			
-			writer.print(new String(buffer));
-			writer.println();
-			writer.flush();
+				writer.println(new String(buffer));
+				writer.flush();
+			}
 		}
 		
 		// function to handle the terminate interrupt
-		private void terminate() {
+		private void terminate(int... EM) {
 			writer.println();
 		    writer.println();
+		    
+		    writer.println("Job Id\t:\t"+pcb.jobId);
+		    for(int i : EM) {
+		    	String message = "";
+		    	if(EM[i] == 0) {
+		    		message = "NO ERROR";
+		    	}else if(EM[i] == 1) {
+		    		message = "OUT OF DATA";
+		    	}else if(EM[i] == 2) {
+		    		message = "LINE LIMIT EXCEEDED";
+		    	}else if(EM[i] == 3) {
+		    		message = "TIME LIMIT EXCEEDED";
+		    	}else if(EM[i] == 4) {
+		    		message = "OPERATION CODE ERROR";
+		    	}else if(EM[i] == 5) {
+		    		message = "OPERAND ERROR";
+		    	}else if(EM[i] == 6) {
+		    		message = "INVALID PAGE FAULT";
+		    	}
+		    	writer.println(message);
+		    }
+		    writer.println("IC\t:\t"+this.IC);
+		    writer.println("IR\t:\t"+Arrays.toString(this.IR));
+		    writer.println("TTC\t:\t"+this.pcb.TTC);
+		    writer.println("LLC\t:\t"+this.pcb.LLC);
 		    writer.flush();
 		    writer.close();
 		}
 		
 		// Store the register into memory
-		private void storeRegister() {
-			int block = Character.getNumericValue(IR[2]) * 10 + Character.getNumericValue(IR[3]);
+		private void storeRegister() throws IOException{
+			int operand = Character.getNumericValue(IR[2]) * 10 + Character.getNumericValue(IR[3]);
+			int realOperand = mapAddress(operand);
+			
+			if(realOperand == -2) {
+				System.err.println("Operand Error :: Invalid virtual address!!");
+				TI = 0;
+				PI = 2;
+				SI = 0;
+				MOS(realOperand);
+			}
+			
+			if(realOperand == -1) {
+				System.err.println("Page Fault");
+				TI = 0;
+				PI = 3;
+				SI = 0;
+				MOS(realOperand);
+			}
 			
 			for(int i = 0; i<4; i++) {
-				M[block][i] = R[i];
+				M[realOperand][i] = R[i];
 			}
 			
 		}
 		
 		// Load the memory 
 		private void loadRegister() {
-			int block = Character.getNumericValue(IR[2]) * 10 + Character.getNumericValue(IR[3]);
+			int operand = Character.getNumericValue(IR[2]) * 10 + Character.getNumericValue(IR[3]);
+			int realOperand = mapAddress(operand);
+			
 			for(int i = 0; i<4; i++) {
-				 R[i] = M[block][i];
+				 R[i] = M[realOperand][i];
 			}
 		}
 		
 		// Compare the register with the memory
 		private void compareRegister() {
-			int block = Character.getNumericValue(IR[2]) * 10 + Character.getNumericValue(IR[3]);
+			int operand = Character.getNumericValue(IR[2]) * 10 + Character.getNumericValue(IR[3]);
+			int realOperand = mapAddress(operand);
 			char temp[] = new char[4];
 			
 			for(int i = 0; i<4; i++) {
-				temp[i] = M[block][i];
+				temp[i] = M[realOperand][i];
 			}
 			
 			C = Arrays.equals(temp, R);
@@ -256,30 +425,56 @@ public class OSv2 {
 		
 		// Branch to give instruction
 		private void branchTo(){
-			System.err.println("Reach here!");
 			if(C) {
-				int block = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
-				IC = block;
-				System.err.println(block);
+				int newIC = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+				IC = newIC;
 			}
 		}
 		
 		// Master Operating System
-		private void MOS() throws IOException {
-			if(SI == 1) {
+		private void MOS(int physicalAddress) throws IOException {
+			if(TI == 0 && SI == 1) {
 				read();
-			}else if(SI == 2) {
+			}else if(TI == 0 && SI == 2) {
 				write();
-			}else if(SI == 3) {
-				terminate();
-			}else {
-				System.err.println("Inavlid Interrupt !!!");
+			}else if(TI == 0 && SI == 3) {
+				terminate(0);
+			}else if(TI == 2 && SI == 1){
+				terminate(3);
+			}else if(TI == 2 && SI == 2){
+				terminate(3);
+			}else if(TI == 3 && SI == 3){
+				terminate(0);
+			}
+			
+			if(TI == 0 && PI == 1) {
+				terminate(4);
+			}else if(TI == 0 && PI == 2) {
+				terminate(5);
+			}else if(TI == 0 && PI == 3) {
+				if(R[0] == 'S' && R[1] == 'R' || R[0] == 'G' && R[1] == 'D') {
+					System.err.println("Valid page fault occurred!!!");
+					int pageNumber = allocatePage();
+					M[PTR + pageCounter][2] = (char) ((pageNumber / 10) + '0');
+					M[PTR + pageCounter][3] = (char) ((pageNumber % 10) + '0');
+					pageCounter++;
+					IC--;
+				}else {
+					System.err.println("Invalid page fault occurred!!!");
+					terminate(6);
+				}
+			}else if(TI == 2 && PI == 1) {
+				terminate(3, 4);
+			}else if(TI == 2 && PI == 2) {
+				terminate(3, 5);
+			}else if(TI == 3 && PI == 3) {
+				terminate(3);
 			}
 		}
 		
 		public void displayMemory() {
 			
-			for (int block = 0; block < 100; block++) {
+			for (int block = 0; block < 300; block++) {
 		        System.out.print("Block " + block + ": ");
 		        for (int word = 0; word < 4; word++) {
 		            char asciiChar = M[block][word];
@@ -298,6 +493,8 @@ public class OSv2 {
 		    
 		    System.out.println();
 		    System.out.println("C : "+C);
+		    System.out.println("PTR : "+PTR);
+		    System.out.println(Arrays.toString(this.isAllocated));
 		}
 		
 		public static void main(String[] args) throws IOException{
@@ -306,4 +503,20 @@ public class OSv2 {
 			os.displayMemory();
 		}
 
+}
+
+class PCB{
+	int jobId;
+	int TTL;
+	int TLL;
+	int LLC;
+	int TTC;
+	
+	public PCB(int jobId, int TTL, int TLL) {
+		this.jobId = jobId;
+		this.TTL = TTL;
+		this.TLL = TLL;
+		LLC = 0;
+		TTC = 0;
+	}
 }
