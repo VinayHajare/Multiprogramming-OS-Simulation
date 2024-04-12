@@ -115,26 +115,40 @@ public class OSv2 {
 		
 		// Function to map a virtual address to corresponding  physical address
 		int mapAddress(int virtualAddress) throws IOException {
-			if (virtualAddress < 0 || virtualAddress > 99) {
-				this.SI = 0;
-	            this.PI = 2;
-	            this.TI = 0;
-				MOS();
-				return -1;
-	        }
-			
-            int pageTableEntry = PTR + (virtualAddress / 10);
-            int M_of_PTE = (M[pageTableEntry][2] - '0') * 10 + (M[pageTableEntry][3] - '0');
-            int physicalAddress = M_of_PTE * 10 + (virtualAddress % 10);
-            
-			if( physicalAddress < 0 || physicalAddress > 299) {
-				this.SI = 0;
-				this.PI = 3;
-				this.TI = 0;
-				return -2;
-			}
-			return physicalAddress;
+		    System.out.println("VA : " + virtualAddress);
+		    
+		    // Check for operand error
+		    if (virtualAddress < 0 || virtualAddress > 99) {
+		        this.SI = 0;
+		        this.PI = 2;
+		        this.TI = 0;
+		        MOS();
+		    }
+
+		    int pageTableEntry = PTR + (virtualAddress / 10);
+		    System.out.println("PTE : " + pageTableEntry);
+		    
+		    // Update the page table entry if necessary
+		    int M_of_PTE = (M[pageTableEntry][2] - '0') * 10 + (M[pageTableEntry][3] - '0');
+		    System.out.println("Content of PTE : " + M_of_PTE);
+		    
+		    int physicalAddress = M_of_PTE * 10 + (virtualAddress % 10);
+		    System.out.println("PA : " + physicalAddress);
+		    
+		    if (physicalAddress < 0 || physicalAddress > 299) {
+		        this.PI = 3;
+		        this.TI = 0;
+		        this.SI = 0;
+		        MOS();
+		        
+		        // Update M_of_PTE and physicalAddress after handling page fault
+		        M_of_PTE = (M[pageTableEntry][2] - '0') * 10 + (M[pageTableEntry][3] - '0');
+		        physicalAddress = M_of_PTE * 10 + (virtualAddress % 10);
+		    }
+		    
+		    return physicalAddress;
 		}
+
 		
 		// Function to load the program and data cards
 		public void load() throws IOException {
@@ -203,14 +217,6 @@ public class OSv2 {
 				int physicalAddress = mapAddress(IC);
 				IR = M[physicalAddress];
 				System.out.println(Arrays.toString(IR));
-				int operand = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
-				int realOperand = mapAddress(operand);
-				if(realOperand == -2) {
-					TI = 0;
-					PI = 3;
-					MOS();
-					continue;
-				}
 				IC++;
 				if(IR[0] == 'G' && IR[1] == 'D') {
 					SI = 1;
@@ -228,11 +234,11 @@ public class OSv2 {
 					MOS();
 					break;
 				}else if(IR[0] == 'L' && IR[1] == 'R') {
-					loadRegister(realOperand);
+					loadRegister();
 				}else if(IR[0] == 'S' && IR[1] == 'R') {
-					storeRegister(realOperand);
+					storeRegister();
 				}else if(IR[0] == 'C' && IR[1] == 'R') {
-					compareRegister(realOperand);
+					compareRegister();
 				}else if(IR[0] == 'B' && IR[1] == 'T') {
 					branchTo();
 				}else {
@@ -272,8 +278,8 @@ public class OSv2 {
 					terminate(1);
 				}else {
 					int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
-					// Cause a page fault hence this address is invalid
 					int physicalAddress = mapAddress(virtualAddress);
+					System.err.println(virtualAddress +"="+physicalAddress);
 					for(int i = 0; i<10; i++) {
 						for(int j = 0; j<4; j++) {
 							if(k < 40) {
@@ -301,7 +307,7 @@ public class OSv2 {
 				int k = 0;
 				int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 				int physicalAddress = mapAddress(virtualAddress);
-			
+				System.err.println(virtualAddress+" = "+physicalAddress);
 				for(int i = 0; i<10; i++) {
 					for(int j = 0; j<4; j++) {
 						if(k < 40) {
@@ -310,15 +316,12 @@ public class OSv2 {
 						}
 					}
 				}
-				String data = new String(buffer);
-				writer.println(data);
-				System.err.println("Print Completed! : "+data);
+				writer.println(new String(buffer));
 			}
 		}
 		
 		// function to handle the terminate interrupt
 		private void terminate(int... EM) {
-		    writer.println("Job Id\t:\t"+this.pcb.jobId);
 		    for(int i : EM) {
 		    	String message = "";
 		    	if(i == 0) {
@@ -338,6 +341,7 @@ public class OSv2 {
 		    	}
 		    	writer.println(message);
 		    }
+		    writer.println("Job Id\t:\t"+this.pcb.jobId);
 		    writer.println("IC\t:\t"+this.IC);
 		    writer.println("IR\t:\t"+Arrays.toString(this.IR));
 		    writer.println("TTC\t:\t"+this.pcb.TTC);
@@ -348,24 +352,28 @@ public class OSv2 {
 		}
 		
 		// Store the register into memory
-		private void storeRegister(int operand) throws IOException{
-
+		private void storeRegister() throws IOException{
+			int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+			int operand = mapAddress(virtualAddress);
 			for(int i = 0; i<4; i++) {
 				M[operand][i] = R[i];
 			}
-			
 		}
 		
 		// Load the memory 
-		private void loadRegister(int operand) throws IOException {
+		private void loadRegister() throws IOException {
+			int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+			int operand = mapAddress(virtualAddress);
 			for(int i = 0; i<4; i++) {
 				 R[i] = M[operand][i];
 			}
 		}
 		
 		// Compare the register with the memory
-		private void compareRegister(int operand) throws IOException {
+		private void compareRegister() throws IOException {
 			char temp[] = new char[4];
+			int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+			int operand = mapAddress(virtualAddress);
 			
 			for(int i = 0; i<4; i++) {
 				temp[i] = M[operand][i];
@@ -414,14 +422,12 @@ public class OSv2 {
 			}else if(TI == 0 && PI == 3) {
 				// page fault
 				if((IR[0] == 'S' && IR[1] == 'R') || (IR[0] == 'G' && IR[1] == 'D')) {
-					System.err.println("Valid page fault occurred!!!");
 					int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 					int pageTableEntry = PTR + (virtualAddress / 10);
 					int page = allocatePage();
 					M[pageTableEntry][2] = (char) ((page / 10) + '0');
 					M[pageTableEntry][3] = (char) ((page % 10) + '0');
 					pageCounter += 1;
-					//IC--;
 				}else {
 					System.err.println("Invalid page fault occurred!!!");
 					terminate(6);
