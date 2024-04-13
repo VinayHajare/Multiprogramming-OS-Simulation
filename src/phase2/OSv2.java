@@ -14,8 +14,9 @@ class PCB{
 	int TLL;
 	int LLC;
 	int TTC;
+	
 	public PCB() {
-		
+		// Default constructor
 	}
 	
 	public PCB(int jobId, int TTL, int TLL) {
@@ -115,7 +116,6 @@ public class OSv2 {
 		
 		// Function to map a virtual address to corresponding  physical address
 		int mapAddress(int virtualAddress) throws IOException {
-		    System.out.println("VA : " + virtualAddress);
 		    
 		    // Check for operand error
 		    if (virtualAddress < 0 || virtualAddress > 99) {
@@ -126,30 +126,21 @@ public class OSv2 {
 		    }
 
 		    int pageTableEntry = PTR + (virtualAddress / 10);
-		    System.out.println("PTE : " + pageTableEntry);
 		    
-		    // Update the page table entry if necessary
 		    int M_of_PTE = (M[pageTableEntry][2] - '0') * 10 + (M[pageTableEntry][3] - '0');
-		    System.out.println("Content of PTE : " + M_of_PTE);
 		    
 		    int physicalAddress = M_of_PTE * 10 + (virtualAddress % 10);
-		    System.out.println("PA : " + physicalAddress);
 		    
 		    if (physicalAddress < 0 || physicalAddress > 299) {
 		        this.PI = 3;
 		        this.TI = 0;
 		        this.SI = 0;
-		        MOS();
-		        
-		        // Update M_of_PTE and physicalAddress after handling page fault
-		        M_of_PTE = (M[pageTableEntry][2] - '0') * 10 + (M[pageTableEntry][3] - '0');
-		        physicalAddress = M_of_PTE * 10 + (virtualAddress % 10);
+		        return -1;
 		    }
 		    
 		    return physicalAddress;
 		}
-
-		
+	
 		// Function to load the program and data cards
 		public void load() throws IOException {
 			String line = null;
@@ -202,6 +193,7 @@ public class OSv2 {
 					}
 				}
 			}
+			writer.close();
 		}
 		
 		// Start the execution of the program 
@@ -216,9 +208,18 @@ public class OSv2 {
 			while(!isTerminated) {
 				int physicalAddress = mapAddress(IC);
 				IR = M[physicalAddress];
-				System.out.println(Arrays.toString(IR));
 				IC++;
 				if(IR[0] == 'G' && IR[1] == 'D') {
+					int operand = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+					int realOperand = mapAddress(operand);
+					if(realOperand == -1) {
+						PI = 3;
+						SI = 0;
+						TI = 0;
+						MOS();
+						this.pcb.TTC++;
+						continue;
+					}
 					SI = 1;
 					TI = 0;
 					PI = 0;
@@ -228,6 +229,7 @@ public class OSv2 {
 					PI = 0;
 					MOS();
 				}else if(IR[0] == 'H') {
+					this.pcb.TTC++;
 					SI = 3;
 					PI = 0;
 					TI = 0;
@@ -236,6 +238,16 @@ public class OSv2 {
 				}else if(IR[0] == 'L' && IR[1] == 'R') {
 					loadRegister();
 				}else if(IR[0] == 'S' && IR[1] == 'R') {
+					int operand = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
+					int realOperand = mapAddress(operand);
+					if(realOperand == -1) {
+						PI = 3;
+						SI = 0;
+						TI = 0;
+						MOS();
+						this.pcb.TTC++;
+						continue;
+					}
 					storeRegister();
 				}else if(IR[0] == 'C' && IR[1] == 'R') {
 					compareRegister();
@@ -279,7 +291,6 @@ public class OSv2 {
 				}else {
 					int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 					int physicalAddress = mapAddress(virtualAddress);
-					System.err.println(virtualAddress +"="+physicalAddress);
 					for(int i = 0; i<10; i++) {
 						for(int j = 0; j<4; j++) {
 							if(k < 40) {
@@ -307,7 +318,6 @@ public class OSv2 {
 				int k = 0;
 				int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 				int physicalAddress = mapAddress(virtualAddress);
-				System.err.println(virtualAddress+" = "+physicalAddress);
 				for(int i = 0; i<10; i++) {
 					for(int j = 0; j<4; j++) {
 						if(k < 40) {
@@ -317,6 +327,7 @@ public class OSv2 {
 					}
 				}
 				writer.println(new String(buffer));
+				writer.flush();
 			}
 		}
 		
@@ -348,7 +359,7 @@ public class OSv2 {
 		    writer.println("LLC\t:\t"+this.pcb.LLC);
 		    writer.println();
 		    writer.println();
-		    writer.close();
+		    writer.flush();
 		}
 		
 		// Store the register into memory
@@ -428,6 +439,7 @@ public class OSv2 {
 					M[pageTableEntry][2] = (char) ((page / 10) + '0');
 					M[pageTableEntry][3] = (char) ((page % 10) + '0');
 					pageCounter += 1;
+					IC--;
 				}else {
 					System.err.println("Invalid page fault occurred!!!");
 					terminate(6);
@@ -463,6 +475,7 @@ public class OSv2 {
 		    System.out.println();
 		    System.out.println("C : "+C);
 		    System.out.println("PTR : "+PTR);
+		    System.out.println("Page Counter : "+pageCounter);
 		    System.out.println(Arrays.toString(this.isAllocated));
 		}
 		

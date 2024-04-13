@@ -1,9 +1,18 @@
-                                        
+HelloWorld                              
 NO ERROR
 Job Id	:	1
 IC	:	3
 IR	:	[H,  ,  ,  ]
-TTC	:	2
+TTC	:	4
+LLC	:	1
+
+
+HelloWorld                              
+NO ERROR
+Job Id	:	2
+IC	:	3
+IR	:	[H,  ,  ,  ]
+TTC	:	4
 LLC	:	1
 
 
