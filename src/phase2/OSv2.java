@@ -213,11 +213,11 @@ public class OSv2 {
 					int operand = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 					int realOperand = mapAddress(operand);
 					if(realOperand == -1) {
+						this.pcb.TTC++;
 						PI = 3;
 						SI = 0;
 						TI = 0;
 						MOS();
-						this.pcb.TTC++;
 						continue;
 					}
 					SI = 1;
@@ -241,11 +241,11 @@ public class OSv2 {
 					int operand = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 					int realOperand = mapAddress(operand);
 					if(realOperand == -1) {
+						this.pcb.TTC++;
 						PI = 3;
 						SI = 0;
 						TI = 0;
 						MOS();
-						this.pcb.TTC++;
 						continue;
 					}
 					storeRegister();
@@ -254,7 +254,6 @@ public class OSv2 {
 				}else if(IR[0] == 'B' && IR[1] == 'T') {
 					branchTo();
 				}else {
-					System.err.print("Invalid Operation Code : "+ Character.toString(IR[0]) + Character.toString(IR[1]));
 					PI = 1;
 					TI = 0;
 					MOS();
@@ -267,6 +266,11 @@ public class OSv2 {
 					TI = 2;
 					MOS();
 				}
+				
+				if (isTerminated) {
+		            break;
+		        }
+				
 			}
 		}
 		
@@ -291,6 +295,7 @@ public class OSv2 {
 				}else {
 					int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 					int physicalAddress = mapAddress(virtualAddress);
+					
 					for(int i = 0; i<10; i++) {
 						for(int j = 0; j<4; j++) {
 							if(k < 40) {
@@ -318,6 +323,15 @@ public class OSv2 {
 				int k = 0;
 				int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 				int physicalAddress = mapAddress(virtualAddress);
+				
+				if(physicalAddress == -1) {
+					PI = 3;
+					SI = 0;
+					TI = 0;
+					MOS();
+					return;
+				}
+				
 				for(int i = 0; i<10; i++) {
 					for(int j = 0; j<4; j++) {
 						if(k < 40) {
@@ -334,21 +348,28 @@ public class OSv2 {
 		// function to handle the terminate interrupt
 		private void terminate(int... EM) {
 		    for(int i : EM) {
-		    	String message = "";
+		    	String message = "Program exited with : ";
 		    	if(i == 0) {
-		    		message = "NO ERROR";
+		    		message += "NO ERRORS ";
+		    		isTerminated = true;
 		    	}else if(i == 1) {
-		    		message = "OUT OF DATA";
+		    		message += "OUT OF DATA ERROR ";
+		    		isTerminated = true;
 		    	}else if(i == 2) {
-		    		message = "LINE LIMIT EXCEEDED";
+		    		message += "LINE LIMIT EXCEEDED ERROR ";
+		    		isTerminated = true;
 		    	}else if(i == 3) {
-		    		message = "TIME LIMIT EXCEEDED";
+		    		message += "TIME LIMIT EXCEEDED ERROR ";
+		    		isTerminated = true;
 		    	}else if(i == 4) {
-		    		message = "OPERATION CODE ERROR";
+		    		message += "OPERATION CODE ERROR ";
+		    		isTerminated = true;
 		    	}else if(i == 5) {
-		    		message = "OPERAND ERROR";
+		    		message += "OPERAND ERROR ";
+		    		isTerminated = true;
 		    	}else if(i == 6) {
-		    		message = "INVALID PAGE FAULT";
+		    		message += "INVALID PAGE FAULT ERROR ";
+		    		isTerminated = true;
 		    	}
 		    	writer.println(message);
 		    }
@@ -366,6 +387,7 @@ public class OSv2 {
 		private void storeRegister() throws IOException{
 			int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 			int operand = mapAddress(virtualAddress);
+			
 			for(int i = 0; i<4; i++) {
 				M[operand][i] = R[i];
 			}
@@ -375,6 +397,13 @@ public class OSv2 {
 		private void loadRegister() throws IOException {
 			int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 			int operand = mapAddress(virtualAddress);
+			if(operand == -1) {
+				PI = 3;
+				SI = 0;
+				TI = 0;
+				MOS();
+				return;
+			}
 			for(int i = 0; i<4; i++) {
 				 R[i] = M[operand][i];
 			}
@@ -385,7 +414,13 @@ public class OSv2 {
 			char temp[] = new char[4];
 			int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
 			int operand = mapAddress(virtualAddress);
-			
+			if(operand == -1) {
+				PI = 3;
+				SI = 0;
+				TI = 0;
+				MOS();
+				return;
+			}
 			for(int i = 0; i<4; i++) {
 				temp[i] = M[operand][i];
 			}
@@ -431,6 +466,7 @@ public class OSv2 {
 				// operand error
 				terminate(5);
 			}else if(TI == 0 && PI == 3) {
+				 
 				// page fault
 				if((IR[0] == 'S' && IR[1] == 'R') || (IR[0] == 'G' && IR[1] == 'D')) {
 					int virtualAddress = Character.getNumericValue(IR[2])*10 + Character.getNumericValue(IR[3]);
@@ -440,9 +476,11 @@ public class OSv2 {
 					M[pageTableEntry][3] = (char) ((page % 10) + '0');
 					pageCounter += 1;
 					IC--;
-				}else {
-					System.err.println("Invalid page fault occurred!!!");
-					terminate(6);
+				}else{
+					if (!isTerminated) {
+				        terminate(6);
+				        isTerminated = true;
+				   }
 				}
 			}else if(TI == 2 && PI == 1) {
 				terminate(3, 4);
