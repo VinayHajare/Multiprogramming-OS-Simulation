@@ -347,28 +347,33 @@ public class OSv2 {
 		
 		// function to handle the terminate interrupt
 		private void terminate(int... EM) {
+			// If the system is already terminated, skip further processing
+		    if (isTerminated) {
+		        return;
+		    }
+		    
 		    for(int i : EM) {
-		    	String message = "Program exited with : ";
+		    	StringBuilder message = new StringBuilder("Program exited with : ");
 		    	if(i == 0) {
-		    		message += "NO ERRORS ";
+		    		message.append("NO ERRORS ");
 		    		isTerminated = true;
 		    	}else if(i == 1) {
-		    		message += "OUT OF DATA ERROR ";
+		    		message.append("OUT OF DATA ERROR ");
 		    		isTerminated = true;
 		    	}else if(i == 2) {
-		    		message += "LINE LIMIT EXCEEDED ERROR ";
+		    		message.append("LINE LIMIT EXCEEDED ERROR ");
 		    		isTerminated = true;
 		    	}else if(i == 3) {
-		    		message += "TIME LIMIT EXCEEDED ERROR ";
+		    		message.append("TIME LIMIT EXCEEDED ERROR ");
 		    		isTerminated = true;
 		    	}else if(i == 4) {
-		    		message += "OPERATION CODE ERROR ";
+		    		message.append("OPERATION CODE ERROR ");
 		    		isTerminated = true;
 		    	}else if(i == 5) {
-		    		message += "OPERAND ERROR ";
+		    		message.append("OPERAND ERROR ");
 		    		isTerminated = true;
 		    	}else if(i == 6) {
-		    		message += "INVALID PAGE FAULT ERROR ";
+		    		message.append("INVALID PAGE FAULT ERROR ");
 		    		isTerminated = true;
 		    	}
 		    	writer.println(message);
@@ -381,6 +386,7 @@ public class OSv2 {
 		    writer.println();
 		    writer.println();
 		    writer.flush();
+		    isTerminated = true;
 		}
 		
 		// Store the register into memory
@@ -438,6 +444,10 @@ public class OSv2 {
 		
 		// Master Operating System
 		private void MOS() throws IOException {
+			// If the system is already terminated, skip further processing
+		    if (isTerminated) {
+		        return;
+		    }
 			// Software Interrupts
 			if(TI == 0 && SI == 1) {
 				// read the data
