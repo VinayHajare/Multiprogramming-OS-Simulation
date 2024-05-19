@@ -1,4 +1,5 @@
 package phase1;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -78,7 +79,7 @@ public class OSv1Extended {
 			}
 			
 			if(buffer[0] == '$' && buffer[1] == 'A' && buffer[2] == 'M' && buffer[3] == 'J') {
-				initialize();;
+				initialize();
 			}else if(buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
 				startExecution();
 			}else if(buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {
@@ -106,8 +107,7 @@ public class OSv1Extended {
 							break;
 						}
 						
-						M[block][j] = buffer[k];
-						k++;
+						M[block][j] = buffer[k++];
 					}
 					
 					if (k == 40 || buffer[k] == '\0' || buffer[k] == '\n') {

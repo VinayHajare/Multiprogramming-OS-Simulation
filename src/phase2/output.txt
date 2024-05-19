@@ -1,5 +1,5 @@
 HelloWorld                              
-Program exited with : NO ERRORS 
+Program exited with : NO ERRORS 👍
 Job Id	:	1
 IC	:	3
 IR	:	[H,  ,  ,  ]
@@ -7,7 +7,7 @@ TTC	:	4
 LLC	:	1
 
 
-Program exited with : OUT OF DATA ERROR 
+Program exited with : OUT OF DATA ERROR 📂
 Job Id	:	2
 IC	:	1
 IR	:	[G, D, 2, 0]
@@ -16,7 +16,7 @@ LLC	:	0
 
 
 HelloWorld                              
-Program exited with : LINE LIMIT EXCEEDED ERROR 
+Program exited with : LINE LIMIT EXCEEDED ERROR ❌
 Job Id	:	3
 IC	:	3
 IR	:	[P, D, 2, 0]
@@ -24,7 +24,7 @@ TTC	:	3
 LLC	:	2
 
 
-Program exited with : OPERATION CODE ERROR 
+Program exited with : OPERATION CODE ERROR ❓
 Job Id	:	4
 IC	:	1
 IR	:	[V, D, 2, 0]
@@ -32,7 +32,7 @@ TTC	:	0
 LLC	:	0
 
 
-Program exited with : INVALID PAGE FAULT ERROR 
+Program exited with : INVALID PAGE FAULT ERROR 📖
 Job Id	:	5
 IC	:	2
 IR	:	[P, D, 1, 0]
@@ -40,12 +40,10 @@ TTC	:	2
 LLC	:	1
 
 
-Program exited with : OPERAND ERROR 
+Program exited with : OPERAND ERROR 🚫
 Job Id	:	6
 IC	:	2
 IR	:	[P, D, -, 1]
 TTC	:	2
 LLC	:	1
 
-
-                                    GD20

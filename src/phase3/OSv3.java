@@ -21,7 +21,7 @@ class PCB {
     public int D, P, O, END;
     public int flag = 0;
     public int PTR;
-    public short IC;
+    public int IC;
     public String terminateMsg;
     public STATUS status;
 

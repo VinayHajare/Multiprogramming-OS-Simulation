@@ -355,25 +355,25 @@ public class OSv2 {
 		    for(int i : EM) {
 		    	StringBuilder message = new StringBuilder("Program exited with : ");
 		    	if(i == 0) {
-		    		message.append("NO ERRORS ");
+		    		message.append("NO ERRORS 👍");
 		    		isTerminated = true;
 		    	}else if(i == 1) {
-		    		message.append("OUT OF DATA ERROR ");
+		    		message.append("OUT OF DATA ERROR 📂");
 		    		isTerminated = true;
 		    	}else if(i == 2) {
-		    		message.append("LINE LIMIT EXCEEDED ERROR ");
+		    		message.append("LINE LIMIT EXCEEDED ERROR ❌");
 		    		isTerminated = true;
 		    	}else if(i == 3) {
-		    		message.append("TIME LIMIT EXCEEDED ERROR ");
+		    		message.append("TIME LIMIT EXCEEDED ERROR ⌛");
 		    		isTerminated = true;
 		    	}else if(i == 4) {
-		    		message.append("OPERATION CODE ERROR ");
+		    		message.append("OPERATION CODE ERROR ❓");
 		    		isTerminated = true;
 		    	}else if(i == 5) {
-		    		message.append("OPERAND ERROR ");
+		    		message.append("OPERAND ERROR 🚫");
 		    		isTerminated = true;
 		    	}else if(i == 6) {
-		    		message.append("INVALID PAGE FAULT ERROR ");
+		    		message.append("INVALID PAGE FAULT ERROR 📖");
 		    		isTerminated = true;
 		    	}
 		    	writer.println(message);
@@ -524,7 +524,7 @@ public class OSv2 {
 		    System.out.println("C : "+C);
 		    System.out.println("PTR : "+PTR);
 		    System.out.println("Page Counter : "+pageCounter);
-		    System.out.println(Arrays.toString(this.isAllocated));
+		    System.out.println("Allocated Pages : "+Arrays.toString(this.isAllocated));
 		}
 		
 		public static void main(String[] args) throws IOException{
